@@ -1,0 +1,2813 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PostHog engineering impact</title>
+    <style>
+:root {
+  color: #18211c;
+  background: #f7f8f4;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+button { font: inherit; }
+
+.shell { max-width: 1180px; margin: 0 auto; padding: 54px 28px 72px; }
+.hero { display: flex; justify-content: space-between; gap: 32px; align-items: start; border-bottom: 1px solid #d8ddd6; padding-bottom: 32px; }
+.eyebrow { margin: 0 0 8px; color: #657369; font-size: .75rem; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
+h1, h2, p { margin-top: 0; }
+h1 { font-family: Georgia, serif; font-size: clamp(2.4rem, 5vw, 4.2rem); line-height: .96; letter-spacing: -.055em; margin-bottom: 14px; }
+h2 { margin-bottom: 0; font-size: 1.4rem; letter-spacing: -.03em; }
+.lede { max-width: 650px; color: #526056; font-size: 1.08rem; line-height: 1.6; margin-bottom: 0; }
+.window { background: #e7eee5; color: #36533f; font-weight: 700; padding: 10px 14px; border-radius: 999px; white-space: nowrap; }
+
+.method { margin: 28px 0; display: grid; grid-template-columns: 1.1fr 1fr; gap: 36px; border-left: 4px solid #78a580; padding: 18px 22px; background: #edf3eb; }
+.method p:last-child { margin-bottom: 0; line-height: 1.5; }
+.method ul { align-self: center; margin: 0; padding-left: 20px; color: #425247; line-height: 1.8; }
+.summary { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid #d8ddd6; margin-bottom: 34px; }
+.stat { padding: 21px 24px; border-right: 1px solid #d8ddd6; }
+.stat:last-child { border-right: 0; }
+.stat span { display: block; font-family: Georgia, serif; font-size: 2.3rem; letter-spacing: -.05em; }
+.stat small { color: #647167; font-weight: 650; }
+.reverts { display: grid; grid-template-columns: minmax(230px, .55fr) 1fr; gap: 30px; padding: 22px 24px; margin: -12px 0 34px; background: #fff8f0; border: 1px solid #eadbc8; }
+.revert-content { color: #5c5144; line-height: 1.55; }
+.revert-content ul { margin: 0; padding-left: 18px; }
+.revert-content a { color: #8a4b21; font-weight: 750; }
+
+.layout { display: grid; grid-template-columns: minmax(0, 1.32fr) minmax(330px, .88fr); gap: 26px; align-items: start; }
+.ranking, .detail { background: #fff; border: 1px solid #d8ddd6; }
+.section-heading { display: flex; justify-content: space-between; align-items: end; padding: 24px 24px 17px; border-bottom: 1px solid #e2e6e1; }
+.section-heading button { color: #2f7040; background: transparent; border: 0; cursor: pointer; font-weight: 750; padding: 6px 0; }
+.rank-list { list-style: none; margin: 0; padding: 0; }
+.rank-row { display: grid; grid-template-columns: 42px minmax(120px, 1fr) 62px; gap: 12px; align-items: center; padding: 13px 24px; border-bottom: 1px solid #edf0ec; cursor: pointer; }
+.rank-row:hover, .rank-row.selected { background: #f0f6ed; }
+.rank { color: #8a968c; font-family: Georgia, serif; font-size: 1.25rem; }
+.engineer { font-weight: 780; }
+.bar-track { height: 8px; margin-top: 7px; background: #edf0ec; overflow: hidden; border-radius: 99px; }
+.bar { height: 100%; background: #49865a; border-radius: inherit; }
+.points { font-variant-numeric: tabular-nums; font-weight: 800; text-align: right; }
+.points small { display: block; color: #77837a; font-size: .68rem; font-weight: 700; }
+
+.detail { padding: 25px; position: sticky; top: 20px; }
+.detail-copy { color: #5e6a61; line-height: 1.55; margin: 10px 0 18px; }
+.detail-stats { display: flex; gap: 18px; margin-bottom: 18px; }
+.detail-stat { border-top: 1px solid #cfd7ce; padding-top: 8px; color: #5d6c61; font-size: .78rem; }
+.detail-stat strong { display: block; color: #1d2c21; font-size: 1.25rem; }
+.evidence-list { list-style: none; margin: 0; padding: 0; max-height: 500px; overflow: auto; }
+.evidence-list li { border-top: 1px solid #e4e8e3; padding: 12px 0; }
+.issue-link { color: #235f34; font-weight: 780; text-decoration: none; }
+.pr-links { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 6px; }
+.pr-links a { color: #617468; font-size: .8rem; text-decoration: none; border-bottom: 1px solid #aebaae; }
+.empty { color: #718076; font-style: italic; }
+.caveats { margin-top: 38px; max-width: 800px; border-top: 1px solid #d8ddd6; padding-top: 26px; }
+.caveats h2 { font-family: Georgia, serif; font-size: 1.65rem; }
+.caveats p:last-child { color: #5c6a60; line-height: 1.6; margin-bottom: 0; }
+
+@media (max-width: 760px) {
+  .shell { padding: 34px 18px; }
+  .hero, .method, .layout { display: block; }
+  .window { display: inline-block; margin-top: 18px; }
+  .method { margin: 22px 0; }
+  .method ul { margin-top: 14px; }
+  .reverts { display: block; }
+  .revert-content { margin-top: 12px; }
+  .summary { grid-template-columns: 1fr; }
+  .stat { border-right: 0; border-bottom: 1px solid #d8ddd6; }
+  .stat:last-child { border-bottom: 0; }
+  .detail { margin-top: 22px; position: static; }
+}
+
+</style>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">PostHog / 90-day engineering analysis</p>
+          <h1>Issue-delivery impact</h1>
+          <p class="lede">A transparent ranking of engineers who contributed code to merged PRs associated with closed GitHub issues.</p>
+        </div>
+        <div class="window" id="window">Loading window…</div>
+      </header>
+
+      <section class="method" aria-labelledby="method-title">
+        <div>
+          <p class="eyebrow" id="method-title">How points work</p>
+          <p>Each closed issue is worth <strong>1 point</strong>, split equally among its unique human commit authors across associated merged PRs.</p>
+        </div>
+        <ul>
+          <li>Bot and unknown commit identities excluded</li>
+          <li>Bot, unmerged, cross-repository, and directly reverted PRs excluded</li>
+          <li>Labels, merge speed, and review volume do not affect rank</li>
+        </ul>
+      </section>
+
+      <section class="summary" aria-label="Dashboard summary">
+        <div class="stat"><span id="engineer-count">—</span><small>engineers scored</small></div>
+        <div class="stat"><span id="evidence-count">—</span><small>issue / engineer pairs</small></div>
+        <div class="stat"><span id="score-total">—</span><small>delivery points allocated</small></div>
+      </section>
+
+      <section class="reverts" aria-labelledby="reverts-title">
+        <div>
+          <p class="eyebrow">Durability check</p>
+          <h2 id="reverts-title">Directly reverted delivery PRs</h2>
+        </div>
+        <div id="revert-content" class="revert-content">Loading revert evidence…</div>
+      </section>
+
+      <section class="layout">
+        <section class="ranking" aria-labelledby="ranking-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Ranking</p>
+              <h2 id="ranking-title">Top contributors</h2>
+            </div>
+            <button id="show-all" type="button" aria-pressed="false">Show all</button>
+          </div>
+          <ol class="rank-list" id="rank-list" aria-live="polite"></ol>
+        </section>
+
+        <aside class="detail" aria-labelledby="detail-title">
+          <p class="eyebrow">Evidence</p>
+          <h2 id="detail-title">Select an engineer</h2>
+          <p class="detail-copy" id="detail-copy">Choose a contributor to inspect the closed issues and merged PRs that support their score.</p>
+          <div id="detail-stats" class="detail-stats"></div>
+          <ul id="evidence-list" class="evidence-list"></ul>
+        </aside>
+      </section>
+
+      <section class="caveats" aria-labelledby="caveats-title">
+        <p class="eyebrow">Interpretation</p>
+        <h2 id="caveats-title">This is a delivery signal, not a complete definition of impact.</h2>
+        <p>It does not measure design, incident response, mentoring, review quality, or work tracked outside GitHub Issues. Use the links above to audit individual contributions before drawing conclusions.</p>
+      </section>
+    </main>
+    <script>window.SCORE_DATA = {
+  "repo": "PostHog/posthog",
+  "cutoff": "2026-06-19T21:57:43.556350+00:00",
+  "generated_at": "2026-09-17T21:57:43.556350+00:00",
+  "rule": "Each issue is worth one point, split evenly across unique human commit authors; bot PRs, direct Git-reverted PRs, and bot/unknown commit authors are excluded.",
+  "scores": [
+    {
+      "engineer": "jakesciotto",
+      "points": 41.037
+    },
+    {
+      "engineer": "arthurdedeus",
+      "points": 33.537
+    },
+    {
+      "engineer": "fercgomes",
+      "points": 21.0
+    },
+    {
+      "engineer": "gustavohstrassburger",
+      "points": 13.8333
+    },
+    {
+      "engineer": "haacked",
+      "points": 8.6667
+    },
+    {
+      "engineer": "thmsobrmlr",
+      "points": 8.0
+    },
+    {
+      "engineer": "andrewm4894",
+      "points": 7.537
+    },
+    {
+      "engineer": "GeneralistDev",
+      "points": 4.0
+    },
+    {
+      "engineer": "arnohillen",
+      "points": 4.0
+    },
+    {
+      "engineer": "claude",
+      "points": 3.5
+    },
+    {
+      "engineer": "pauldambra",
+      "points": 3.0
+    },
+    {
+      "engineer": "mariusandra",
+      "points": 3.0
+    },
+    {
+      "engineer": "jonmcwest",
+      "points": 3.0
+    },
+    {
+      "engineer": "dmarticus",
+      "points": 2.5
+    },
+    {
+      "engineer": "andehen",
+      "points": 2.5
+    },
+    {
+      "engineer": "danielcarletti",
+      "points": 2.5
+    },
+    {
+      "engineer": "benjackwhite",
+      "points": 2.5
+    },
+    {
+      "engineer": "tatoalo",
+      "points": 2.5
+    },
+    {
+      "engineer": "MattPua",
+      "points": 2.037
+    },
+    {
+      "engineer": "Asheesh7298",
+      "points": 2.037
+    },
+    {
+      "engineer": "gantoine",
+      "points": 2.037
+    },
+    {
+      "engineer": "Gilbert09",
+      "points": 2.037
+    },
+    {
+      "engineer": "phillram",
+      "points": 2.0
+    },
+    {
+      "engineer": "okxint",
+      "points": 2.0
+    },
+    {
+      "engineer": "hpouillot",
+      "points": 2.0
+    },
+    {
+      "engineer": "carlos-marchal-ph",
+      "points": 2.0
+    },
+    {
+      "engineer": "orian",
+      "points": 2.0
+    },
+    {
+      "engineer": "matheus-vb",
+      "points": 2.0
+    },
+    {
+      "engineer": "rafaeelaudibert",
+      "points": 2.0
+    },
+    {
+      "engineer": "bernatixer",
+      "points": 2.0
+    },
+    {
+      "engineer": "ryangchung",
+      "points": 1.8333
+    },
+    {
+      "engineer": "igennova",
+      "points": 1.6667
+    },
+    {
+      "engineer": "sampennington",
+      "points": 1.537
+    },
+    {
+      "engineer": "AlexlaGuardia",
+      "points": 1.5
+    },
+    {
+      "engineer": "slshults",
+      "points": 1.3333
+    },
+    {
+      "engineer": "richardsolomou",
+      "points": 1.287
+    },
+    {
+      "engineer": "luke-belton",
+      "points": 1.037
+    },
+    {
+      "engineer": "eli-r-ph",
+      "points": 1.037
+    },
+    {
+      "engineer": "lricoy",
+      "points": 1.037
+    },
+    {
+      "engineer": "mp-hog",
+      "points": 1.037
+    },
+    {
+      "engineer": "adboio",
+      "points": 1.037
+    },
+    {
+      "engineer": "rnegron",
+      "points": 1.037
+    },
+    {
+      "engineer": "Piccirello",
+      "points": 1.037
+    },
+    {
+      "engineer": "Akash504-ai",
+      "points": 1.0
+    },
+    {
+      "engineer": "robbie-c",
+      "points": 1.0
+    },
+    {
+      "engineer": "tushardev-365",
+      "points": 1.0
+    },
+    {
+      "engineer": "DebadityaHait",
+      "points": 1.0
+    },
+    {
+      "engineer": "Gudauu",
+      "points": 1.0
+    },
+    {
+      "engineer": "afsuyadi",
+      "points": 1.0
+    },
+    {
+      "engineer": "dmarchuk",
+      "points": 1.0
+    },
+    {
+      "engineer": "sortafreel",
+      "points": 1.0
+    },
+    {
+      "engineer": "webjunkie",
+      "points": 1.0
+    },
+    {
+      "engineer": "gouveags",
+      "points": 1.0
+    },
+    {
+      "engineer": "cvolzer3",
+      "points": 1.0
+    },
+    {
+      "engineer": "mayteio",
+      "points": 1.0
+    },
+    {
+      "engineer": "9trocode",
+      "points": 1.0
+    },
+    {
+      "engineer": "jabahamondes",
+      "points": 1.0
+    },
+    {
+      "engineer": "jurajmajerik",
+      "points": 1.0
+    },
+    {
+      "engineer": "charlesvien",
+      "points": 1.0
+    },
+    {
+      "engineer": "marandaneto",
+      "points": 1.0
+    },
+    {
+      "engineer": "JamesPatrickGill",
+      "points": 1.0
+    },
+    {
+      "engineer": "Radu-Raicea",
+      "points": 0.787
+    },
+    {
+      "engineer": "Souheyl7Gouadria",
+      "points": 0.5
+    },
+    {
+      "engineer": "SafinMahmud",
+      "points": 0.5
+    },
+    {
+      "engineer": "maxjneto",
+      "points": 0.5
+    },
+    {
+      "engineer": "adamleithp",
+      "points": 0.5
+    },
+    {
+      "engineer": "sakce",
+      "points": 0.5
+    },
+    {
+      "engineer": "MarconLP",
+      "points": 0.5
+    },
+    {
+      "engineer": "Bhumika-1432006",
+      "points": 0.5
+    },
+    {
+      "engineer": "ablaszkiewicz",
+      "points": 0.5
+    },
+    {
+      "engineer": "christiaan-ph",
+      "points": 0.5
+    },
+    {
+      "engineer": "jericopingul",
+      "points": 0.5
+    },
+    {
+      "engineer": "BaconMan1168",
+      "points": 0.5
+    },
+    {
+      "engineer": "puspoaditya",
+      "points": 0.5
+    },
+    {
+      "engineer": "pawel-cebula",
+      "points": 0.5
+    },
+    {
+      "engineer": "lukebaber-posthog",
+      "points": 0.5
+    },
+    {
+      "engineer": "TorinAsakura",
+      "points": 0.5
+    },
+    {
+      "engineer": "ella-c-ph",
+      "points": 0.5
+    },
+    {
+      "engineer": "willwearing",
+      "points": 0.5
+    },
+    {
+      "engineer": "CShine612",
+      "points": 0.5
+    },
+    {
+      "engineer": "wakqasahmed",
+      "points": 0.5
+    },
+    {
+      "engineer": "rubychilds",
+      "points": 0.3333
+    },
+    {
+      "engineer": "nandinitiw",
+      "points": 0.3333
+    },
+    {
+      "engineer": "tsushanth",
+      "points": 0.3333
+    },
+    {
+      "engineer": "apoorva-01",
+      "points": 0.3333
+    },
+    {
+      "engineer": "smz202000",
+      "points": 0.3333
+    },
+    {
+      "engineer": "gauravp-cubic",
+      "points": 0.25
+    },
+    {
+      "engineer": "gtpooniwala",
+      "points": 0.25
+    },
+    {
+      "engineer": "lucasheriques",
+      "points": 0.037
+    },
+    {
+      "engineer": "jose-sequeira",
+      "points": 0.037
+    },
+    {
+      "engineer": "cat-ph",
+      "points": 0.037
+    },
+    {
+      "engineer": "VojtechBartos",
+      "points": 0.037
+    },
+    {
+      "engineer": "kyleswank",
+      "points": 0.037
+    },
+    {
+      "engineer": "seanpem",
+      "points": 0.037
+    },
+    {
+      "engineer": "Twixes",
+      "points": 0.037
+    },
+    {
+      "engineer": "puemos",
+      "points": 0.037
+    },
+    {
+      "engineer": "z0br0wn",
+      "points": 0.037
+    },
+    {
+      "engineer": "TueHaulund",
+      "points": 0.037
+    }
+  ],
+  "evidence": [
+    {
+      "issue": 2594,
+      "engineer": "sampennington",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/83740"
+      ]
+    },
+    {
+      "issue": 19367,
+      "engineer": "apoorva-01",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/66505"
+      ]
+    },
+    {
+      "issue": 19367,
+      "engineer": "haacked",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/66505",
+        "https://github.com/PostHog/posthog/pull/80814"
+      ]
+    },
+    {
+      "issue": 19367,
+      "engineer": "smz202000",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/80814"
+      ]
+    },
+    {
+      "issue": 21390,
+      "engineer": "CShine612",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/86148"
+      ]
+    },
+    {
+      "issue": 21390,
+      "engineer": "willwearing",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/86148"
+      ]
+    },
+    {
+      "issue": 21999,
+      "engineer": "arnohillen",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/73736"
+      ]
+    },
+    {
+      "issue": 23093,
+      "engineer": "thmsobrmlr",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/73081"
+      ]
+    },
+    {
+      "issue": 23615,
+      "engineer": "thmsobrmlr",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/73816"
+      ]
+    },
+    {
+      "issue": 23762,
+      "engineer": "thmsobrmlr",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/72720"
+      ]
+    },
+    {
+      "issue": 25058,
+      "engineer": "thmsobrmlr",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/65197",
+        "https://github.com/PostHog/posthog/pull/73083"
+      ]
+    },
+    {
+      "issue": 25491,
+      "engineer": "MattPua",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69028"
+      ]
+    },
+    {
+      "issue": 27712,
+      "engineer": "MarconLP",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/26088"
+      ]
+    },
+    {
+      "issue": 27712,
+      "engineer": "benjackwhite",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/26088"
+      ]
+    },
+    {
+      "issue": 29757,
+      "engineer": "GeneralistDev",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/83575"
+      ]
+    },
+    {
+      "issue": 30174,
+      "engineer": "JamesPatrickGill",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/84644"
+      ]
+    },
+    {
+      "issue": 30492,
+      "engineer": "rafaeelaudibert",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/96866"
+      ]
+    },
+    {
+      "issue": 30932,
+      "engineer": "okxint",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/55753"
+      ]
+    },
+    {
+      "issue": 30932,
+      "engineer": "thmsobrmlr",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/55753"
+      ]
+    },
+    {
+      "issue": 34479,
+      "engineer": "gustavohstrassburger",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69044"
+      ]
+    },
+    {
+      "issue": 34479,
+      "engineer": "haacked",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69044"
+      ]
+    },
+    {
+      "issue": 34479,
+      "engineer": "rubychilds",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69044"
+      ]
+    },
+    {
+      "issue": 36380,
+      "engineer": "arnohillen",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/74087"
+      ]
+    },
+    {
+      "issue": 36459,
+      "engineer": "mariusandra",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/78976"
+      ]
+    },
+    {
+      "issue": 36627,
+      "engineer": "thmsobrmlr",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/36922"
+      ]
+    },
+    {
+      "issue": 36856,
+      "engineer": "mariusandra",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/78976"
+      ]
+    },
+    {
+      "issue": 39135,
+      "engineer": "haacked",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/65981",
+        "https://github.com/PostHog/posthog/pull/67552"
+      ]
+    },
+    {
+      "issue": 39135,
+      "engineer": "igennova",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/65981"
+      ]
+    },
+    {
+      "issue": 39135,
+      "engineer": "nandinitiw",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/67552"
+      ]
+    },
+    {
+      "issue": 40214,
+      "engineer": "arnohillen",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/73943"
+      ]
+    },
+    {
+      "issue": 40759,
+      "engineer": "danielcarletti",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/50005"
+      ]
+    },
+    {
+      "issue": 41838,
+      "engineer": "arnohillen",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/74071"
+      ]
+    },
+    {
+      "issue": 42520,
+      "engineer": "eli-r-ph",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/70268"
+      ]
+    },
+    {
+      "issue": 43310,
+      "engineer": "AlexlaGuardia",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/72421"
+      ]
+    },
+    {
+      "issue": 43384,
+      "engineer": "dmarchuk",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/60212"
+      ]
+    },
+    {
+      "issue": 46111,
+      "engineer": "robbie-c",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/46495"
+      ]
+    },
+    {
+      "issue": 46501,
+      "engineer": "9trocode",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/78678"
+      ]
+    },
+    {
+      "issue": 46669,
+      "engineer": "rafaeelaudibert",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/96866"
+      ]
+    },
+    {
+      "issue": 48179,
+      "engineer": "hpouillot",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/59001"
+      ]
+    },
+    {
+      "issue": 48947,
+      "engineer": "GeneralistDev",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/81106"
+      ]
+    },
+    {
+      "issue": 49592,
+      "engineer": "gustavohstrassburger",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69410"
+      ]
+    },
+    {
+      "issue": 50740,
+      "engineer": "SafinMahmud",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/51697"
+      ]
+    },
+    {
+      "issue": 50740,
+      "engineer": "dmarticus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/51697"
+      ]
+    },
+    {
+      "issue": 51095,
+      "engineer": "webjunkie",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/50747"
+      ]
+    },
+    {
+      "issue": 52424,
+      "engineer": "mariusandra",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/78976"
+      ]
+    },
+    {
+      "issue": 53436,
+      "engineer": "rnegron",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/81257"
+      ]
+    },
+    {
+      "issue": 53446,
+      "engineer": "gustavohstrassburger",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/78383"
+      ]
+    },
+    {
+      "issue": 53990,
+      "engineer": "dmarticus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/53992",
+        "https://github.com/PostHog/posthog/pull/54120"
+      ]
+    },
+    {
+      "issue": 54148,
+      "engineer": "Akash504-ai",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/54159"
+      ]
+    },
+    {
+      "issue": 55041,
+      "engineer": "adamleithp",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/66943"
+      ]
+    },
+    {
+      "issue": 55041,
+      "engineer": "okxint",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/66943"
+      ]
+    },
+    {
+      "issue": 55209,
+      "engineer": "carlos-marchal-ph",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69090"
+      ]
+    },
+    {
+      "issue": 55209,
+      "engineer": "maxjneto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69090"
+      ]
+    },
+    {
+      "issue": 55404,
+      "engineer": "gustavohstrassburger",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/63057"
+      ]
+    },
+    {
+      "issue": 55532,
+      "engineer": "haacked",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/64439"
+      ]
+    },
+    {
+      "issue": 56083,
+      "engineer": "gustavohstrassburger",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/61719"
+      ]
+    },
+    {
+      "issue": 57002,
+      "engineer": "dmarticus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/57007"
+      ]
+    },
+    {
+      "issue": 57017,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/60075"
+      ]
+    },
+    {
+      "issue": 58066,
+      "engineer": "GeneralistDev",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/80570"
+      ]
+    },
+    {
+      "issue": 59898,
+      "engineer": "afsuyadi",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/59903"
+      ]
+    },
+    {
+      "issue": 60314,
+      "engineer": "gustavohstrassburger",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/71611"
+      ]
+    },
+    {
+      "issue": 60375,
+      "engineer": "fercgomes",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/65929"
+      ]
+    },
+    {
+      "issue": 61109,
+      "engineer": "pauldambra",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/82259"
+      ]
+    },
+    {
+      "issue": 62482,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/70467"
+      ]
+    },
+    {
+      "issue": 63155,
+      "engineer": "gustavohstrassburger",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/65280"
+      ]
+    },
+    {
+      "issue": 63662,
+      "engineer": "haacked",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/65356"
+      ]
+    },
+    {
+      "issue": 63662,
+      "engineer": "okxint",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/65356"
+      ]
+    },
+    {
+      "issue": 64130,
+      "engineer": "phillram",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/64135"
+      ]
+    },
+    {
+      "issue": 64164,
+      "engineer": "luke-belton",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/71002"
+      ]
+    },
+    {
+      "issue": 64423,
+      "engineer": "gustavohstrassburger",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/64430"
+      ]
+    },
+    {
+      "issue": 64423,
+      "engineer": "phillram",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/64430"
+      ]
+    },
+    {
+      "issue": 65026,
+      "engineer": "matheus-vb",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/65340"
+      ]
+    },
+    {
+      "issue": 65094,
+      "engineer": "gustavohstrassburger",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/67997"
+      ]
+    },
+    {
+      "issue": 65270,
+      "engineer": "haacked",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/65355",
+        "https://github.com/PostHog/posthog/pull/65961"
+      ]
+    },
+    {
+      "issue": 65270,
+      "engineer": "ryangchung",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/65355"
+      ]
+    },
+    {
+      "issue": 65270,
+      "engineer": "tsushanth",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/65961"
+      ]
+    },
+    {
+      "issue": 65303,
+      "engineer": "haacked",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/65375"
+      ]
+    },
+    {
+      "issue": 65303,
+      "engineer": "igennova",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/65375"
+      ]
+    },
+    {
+      "issue": 65303,
+      "engineer": "slshults",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/65375"
+      ]
+    },
+    {
+      "issue": 65682,
+      "engineer": "haacked",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/67971"
+      ]
+    },
+    {
+      "issue": 65683,
+      "engineer": "haacked",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/65865"
+      ]
+    },
+    {
+      "issue": 65683,
+      "engineer": "ryangchung",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/65865"
+      ]
+    },
+    {
+      "issue": 65957,
+      "engineer": "ryangchung",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/65966"
+      ]
+    },
+    {
+      "issue": 65957,
+      "engineer": "sakce",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/65966"
+      ]
+    },
+    {
+      "issue": 66109,
+      "engineer": "igennova",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/66258"
+      ]
+    },
+    {
+      "issue": 66165,
+      "engineer": "hpouillot",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/66986"
+      ]
+    },
+    {
+      "issue": 66175,
+      "engineer": "haacked",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/66174"
+      ]
+    },
+    {
+      "issue": 66469,
+      "engineer": "Gudauu",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/68820"
+      ]
+    },
+    {
+      "issue": 66469,
+      "engineer": "carlos-marchal-ph",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/68820"
+      ]
+    },
+    {
+      "issue": 66492,
+      "engineer": "gustavohstrassburger",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/67198"
+      ]
+    },
+    {
+      "issue": 66497,
+      "engineer": "thmsobrmlr",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/67348"
+      ]
+    },
+    {
+      "issue": 66604,
+      "engineer": "lricoy",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/68232"
+      ]
+    },
+    {
+      "issue": 67175,
+      "engineer": "Souheyl7Gouadria",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/67205"
+      ]
+    },
+    {
+      "issue": 67175,
+      "engineer": "sampennington",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/67205"
+      ]
+    },
+    {
+      "issue": 67220,
+      "engineer": "haacked",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/67252"
+      ]
+    },
+    {
+      "issue": 67220,
+      "engineer": "okxint",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/67252"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "Asheesh7298",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "Gilbert09",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "MattPua",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "Piccirello",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "Radu-Raicea",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "TueHaulund",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "Twixes",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "VojtechBartos",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "adboio",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "andrewm4894",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "cat-ph",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "eli-r-ph",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "gantoine",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "jose-sequeira",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "kyleswank",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "lricoy",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "lucasheriques",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "luke-belton",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "mp-hog",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "puemos",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "richardsolomou",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "rnegron",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "sampennington",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "seanpem",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67316,
+      "engineer": "z0br0wn",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69240"
+      ]
+    },
+    {
+      "issue": 67362,
+      "engineer": "haacked",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/67367"
+      ]
+    },
+    {
+      "issue": 67362,
+      "engineer": "ryangchung",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/67367"
+      ]
+    },
+    {
+      "issue": 67942,
+      "engineer": "andehen",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/74623"
+      ]
+    },
+    {
+      "issue": 68252,
+      "engineer": "sortafreel",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/74651"
+      ]
+    },
+    {
+      "issue": 68543,
+      "engineer": "MattPua",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/68983"
+      ]
+    },
+    {
+      "issue": 68904,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/72288"
+      ]
+    },
+    {
+      "issue": 69150,
+      "engineer": "lukebaber-posthog",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69406"
+      ]
+    },
+    {
+      "issue": 69150,
+      "engineer": "pawel-cebula",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69406"
+      ]
+    },
+    {
+      "issue": 69298,
+      "engineer": "gustavohstrassburger",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69314"
+      ]
+    },
+    {
+      "issue": 69311,
+      "engineer": "orian",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69326"
+      ]
+    },
+    {
+      "issue": 69417,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69489"
+      ]
+    },
+    {
+      "issue": 69418,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69429"
+      ]
+    },
+    {
+      "issue": 69419,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69484"
+      ]
+    },
+    {
+      "issue": 69420,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69510"
+      ]
+    },
+    {
+      "issue": 69421,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/69502"
+      ]
+    },
+    {
+      "issue": 69850,
+      "engineer": "Gudauu",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/73382"
+      ]
+    },
+    {
+      "issue": 69850,
+      "engineer": "Radu-Raicea",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/73382"
+      ]
+    },
+    {
+      "issue": 70063,
+      "engineer": "pauldambra",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/70092"
+      ]
+    },
+    {
+      "issue": 70109,
+      "engineer": "gustavohstrassburger",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/70883"
+      ]
+    },
+    {
+      "issue": 70238,
+      "engineer": "DebadityaHait",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/70314"
+      ]
+    },
+    {
+      "issue": 70297,
+      "engineer": "tushardev-365",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/70530"
+      ]
+    },
+    {
+      "issue": 70360,
+      "engineer": "andehen",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/70463"
+      ]
+    },
+    {
+      "issue": 70852,
+      "engineer": "mp-hog",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/71032"
+      ]
+    },
+    {
+      "issue": 70960,
+      "engineer": "gantoine",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/78238"
+      ]
+    },
+    {
+      "issue": 71101,
+      "engineer": "slshults",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/72997"
+      ]
+    },
+    {
+      "issue": 71123,
+      "engineer": "benjackwhite",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/73919"
+      ]
+    },
+    {
+      "issue": 71306,
+      "engineer": "gouveags",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/71323"
+      ]
+    },
+    {
+      "issue": 71306,
+      "engineer": "richardsolomou",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/71323"
+      ]
+    },
+    {
+      "issue": 71714,
+      "engineer": "benjackwhite",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/73919"
+      ]
+    },
+    {
+      "issue": 72450,
+      "engineer": "andehen",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/72451"
+      ]
+    },
+    {
+      "issue": 72450,
+      "engineer": "phillram",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/72451"
+      ]
+    },
+    {
+      "issue": 72835,
+      "engineer": "mayteio",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/72913"
+      ]
+    },
+    {
+      "issue": 73302,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/73599"
+      ]
+    },
+    {
+      "issue": 73389,
+      "engineer": "cvolzer3",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/74066"
+      ]
+    },
+    {
+      "issue": 73920,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/73336"
+      ]
+    },
+    {
+      "issue": 73922,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/75703"
+      ]
+    },
+    {
+      "issue": 73924,
+      "engineer": "AlexlaGuardia",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/73971"
+      ]
+    },
+    {
+      "issue": 73924,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/73971"
+      ]
+    },
+    {
+      "issue": 73973,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/74712"
+      ]
+    },
+    {
+      "issue": 74016,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/74028"
+      ]
+    },
+    {
+      "issue": 74027,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/75553",
+        "https://github.com/PostHog/posthog/pull/75778"
+      ]
+    },
+    {
+      "issue": 74029,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/74258"
+      ]
+    },
+    {
+      "issue": 74241,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/74706"
+      ]
+    },
+    {
+      "issue": 74307,
+      "engineer": "fercgomes",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/74880",
+        "https://github.com/PostHog/posthog/pull/75697",
+        "https://github.com/PostHog/posthog/pull/77849"
+      ]
+    },
+    {
+      "issue": 74308,
+      "engineer": "fercgomes",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/74278"
+      ]
+    },
+    {
+      "issue": 74309,
+      "engineer": "fercgomes",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/74324"
+      ]
+    },
+    {
+      "issue": 74316,
+      "engineer": "fercgomes",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/74034",
+        "https://github.com/PostHog/posthog/pull/74035",
+        "https://github.com/PostHog/posthog/pull/74036",
+        "https://github.com/PostHog/posthog/pull/74037",
+        "https://github.com/PostHog/posthog/pull/74038",
+        "https://github.com/PostHog/posthog/pull/74039",
+        "https://github.com/PostHog/posthog/pull/74047"
+      ]
+    },
+    {
+      "issue": 74366,
+      "engineer": "gouveags",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/74380"
+      ]
+    },
+    {
+      "issue": 74366,
+      "engineer": "richardsolomou",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/74380"
+      ]
+    },
+    {
+      "issue": 74587,
+      "engineer": "andrewm4894",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/74601"
+      ]
+    },
+    {
+      "issue": 74935,
+      "engineer": "fercgomes",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/75734"
+      ]
+    },
+    {
+      "issue": 74941,
+      "engineer": "fercgomes",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/74957"
+      ]
+    },
+    {
+      "issue": 74975,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/75703"
+      ]
+    },
+    {
+      "issue": 75182,
+      "engineer": "gustavohstrassburger",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/78418"
+      ]
+    },
+    {
+      "issue": 75572,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/75585"
+      ]
+    },
+    {
+      "issue": 75643,
+      "engineer": "fercgomes",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/75634"
+      ]
+    },
+    {
+      "issue": 76076,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/76808"
+      ]
+    },
+    {
+      "issue": 76121,
+      "engineer": "adboio",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/86403"
+      ]
+    },
+    {
+      "issue": 76192,
+      "engineer": "tatoalo",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/83562"
+      ]
+    },
+    {
+      "issue": 76192,
+      "engineer": "wakqasahmed",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/83562"
+      ]
+    },
+    {
+      "issue": 76317,
+      "engineer": "tatoalo",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/89067"
+      ]
+    },
+    {
+      "issue": 76342,
+      "engineer": "claude",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/76364"
+      ]
+    },
+    {
+      "issue": 76914,
+      "engineer": "fercgomes",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/77474"
+      ]
+    },
+    {
+      "issue": 78475,
+      "engineer": "fercgomes",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/78517"
+      ]
+    },
+    {
+      "issue": 79107,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/79766"
+      ]
+    },
+    {
+      "issue": 79108,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/79776"
+      ]
+    },
+    {
+      "issue": 79111,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/79793"
+      ]
+    },
+    {
+      "issue": 79112,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/79767"
+      ]
+    },
+    {
+      "issue": 79113,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/79770"
+      ]
+    },
+    {
+      "issue": 79141,
+      "engineer": "fercgomes",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/79264"
+      ]
+    },
+    {
+      "issue": 79167,
+      "engineer": "fercgomes",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/79251"
+      ]
+    },
+    {
+      "issue": 79187,
+      "engineer": "gustavohstrassburger",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/82164"
+      ]
+    },
+    {
+      "issue": 79209,
+      "engineer": "gustavohstrassburger",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/90970"
+      ]
+    },
+    {
+      "issue": 79809,
+      "engineer": "claude",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/79826"
+      ]
+    },
+    {
+      "issue": 79809,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/79826"
+      ]
+    },
+    {
+      "issue": 79810,
+      "engineer": "claude",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/79829"
+      ]
+    },
+    {
+      "issue": 79810,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/79829"
+      ]
+    },
+    {
+      "issue": 79811,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/80000"
+      ]
+    },
+    {
+      "issue": 79845,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/79999"
+      ]
+    },
+    {
+      "issue": 79846,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/80012"
+      ]
+    },
+    {
+      "issue": 79847,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/80010"
+      ]
+    },
+    {
+      "issue": 79849,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/80027"
+      ]
+    },
+    {
+      "issue": 79850,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/80028"
+      ]
+    },
+    {
+      "issue": 79855,
+      "engineer": "Gilbert09",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/80004"
+      ]
+    },
+    {
+      "issue": 79855,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/80004"
+      ]
+    },
+    {
+      "issue": 79865,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/80031"
+      ]
+    },
+    {
+      "issue": 80151,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/80183"
+      ]
+    },
+    {
+      "issue": 80152,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/80184"
+      ]
+    },
+    {
+      "issue": 80153,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/80185"
+      ]
+    },
+    {
+      "issue": 80154,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/80186"
+      ]
+    },
+    {
+      "issue": 80155,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/80187"
+      ]
+    },
+    {
+      "issue": 80156,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/80181"
+      ]
+    },
+    {
+      "issue": 80157,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/80189"
+      ]
+    },
+    {
+      "issue": 80158,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/82973"
+      ]
+    },
+    {
+      "issue": 80159,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/80188"
+      ]
+    },
+    {
+      "issue": 80537,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/86702"
+      ]
+    },
+    {
+      "issue": 80543,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/80802"
+      ]
+    },
+    {
+      "issue": 80544,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/80736"
+      ]
+    },
+    {
+      "issue": 80545,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/80761"
+      ]
+    },
+    {
+      "issue": 80548,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/80672"
+      ]
+    },
+    {
+      "issue": 80550,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/80786"
+      ]
+    },
+    {
+      "issue": 80771,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/80824"
+      ]
+    },
+    {
+      "issue": 80843,
+      "engineer": "carlos-marchal-ph",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/81105"
+      ]
+    },
+    {
+      "issue": 80882,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/82608"
+      ]
+    },
+    {
+      "issue": 81002,
+      "engineer": "haacked",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/82056"
+      ]
+    },
+    {
+      "issue": 81006,
+      "engineer": "Asheesh7298",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/83533"
+      ]
+    },
+    {
+      "issue": 81125,
+      "engineer": "fercgomes",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/81141"
+      ]
+    },
+    {
+      "issue": 81436,
+      "engineer": "fercgomes",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/83882"
+      ]
+    },
+    {
+      "issue": 81545,
+      "engineer": "Asheesh7298",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/81660"
+      ]
+    },
+    {
+      "issue": 81552,
+      "engineer": "fercgomes",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/81775"
+      ]
+    },
+    {
+      "issue": 81596,
+      "engineer": "thmsobrmlr",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/83561"
+      ]
+    },
+    {
+      "issue": 81757,
+      "engineer": "fercgomes",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/81763"
+      ]
+    },
+    {
+      "issue": 81883,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/82171"
+      ]
+    },
+    {
+      "issue": 81884,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/82787"
+      ]
+    },
+    {
+      "issue": 81885,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/83975"
+      ]
+    },
+    {
+      "issue": 82032,
+      "engineer": "fercgomes",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/82044"
+      ]
+    },
+    {
+      "issue": 82033,
+      "engineer": "fercgomes",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/82043"
+      ]
+    },
+    {
+      "issue": 82096,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/82099"
+      ]
+    },
+    {
+      "issue": 82101,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/82115"
+      ]
+    },
+    {
+      "issue": 82922,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/82961"
+      ]
+    },
+    {
+      "issue": 82923,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/82957"
+      ]
+    },
+    {
+      "issue": 82924,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/82959"
+      ]
+    },
+    {
+      "issue": 82927,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/82956"
+      ]
+    },
+    {
+      "issue": 82929,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/82974"
+      ]
+    },
+    {
+      "issue": 82930,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/82958"
+      ]
+    },
+    {
+      "issue": 83149,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/83174"
+      ]
+    },
+    {
+      "issue": 83343,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/83356"
+      ]
+    },
+    {
+      "issue": 83364,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/84740"
+      ]
+    },
+    {
+      "issue": 83446,
+      "engineer": "claude",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/83475"
+      ]
+    },
+    {
+      "issue": 83775,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/83814"
+      ]
+    },
+    {
+      "issue": 83942,
+      "engineer": "Gilbert09",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/89997"
+      ]
+    },
+    {
+      "issue": 83952,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/84705"
+      ]
+    },
+    {
+      "issue": 84596,
+      "engineer": "Radu-Raicea",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/84625"
+      ]
+    },
+    {
+      "issue": 84596,
+      "engineer": "gauravp-cubic",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/84625"
+      ]
+    },
+    {
+      "issue": 84596,
+      "engineer": "gtpooniwala",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/84625"
+      ]
+    },
+    {
+      "issue": 84596,
+      "engineer": "richardsolomou",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/84625"
+      ]
+    },
+    {
+      "issue": 85619,
+      "engineer": "christiaan-ph",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/85635"
+      ]
+    },
+    {
+      "issue": 85619,
+      "engineer": "jericopingul",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/85635"
+      ]
+    },
+    {
+      "issue": 86652,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/86828"
+      ]
+    },
+    {
+      "issue": 86654,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/87301"
+      ]
+    },
+    {
+      "issue": 86655,
+      "engineer": "arthurdedeus",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/88095"
+      ]
+    },
+    {
+      "issue": 87775,
+      "engineer": "marandaneto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/87810"
+      ]
+    },
+    {
+      "issue": 87957,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/91424"
+      ]
+    },
+    {
+      "issue": 87958,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/91423"
+      ]
+    },
+    {
+      "issue": 87959,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/91423"
+      ]
+    },
+    {
+      "issue": 88014,
+      "engineer": "matheus-vb",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/89797"
+      ]
+    },
+    {
+      "issue": 88069,
+      "engineer": "charlesvien",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/88075"
+      ]
+    },
+    {
+      "issue": 88140,
+      "engineer": "BaconMan1168",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/88195"
+      ]
+    },
+    {
+      "issue": 88140,
+      "engineer": "andrewm4894",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/88195"
+      ]
+    },
+    {
+      "issue": 88354,
+      "engineer": "tatoalo",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/95135"
+      ]
+    },
+    {
+      "issue": 88817,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/98074"
+      ]
+    },
+    {
+      "issue": 88926,
+      "engineer": "Gilbert09",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/88928"
+      ]
+    },
+    {
+      "issue": 88926,
+      "engineer": "TorinAsakura",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/88928"
+      ]
+    },
+    {
+      "issue": 88966,
+      "engineer": "andrewm4894",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/88605"
+      ]
+    },
+    {
+      "issue": 88966,
+      "engineer": "ella-c-ph",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/88605"
+      ]
+    },
+    {
+      "issue": 89475,
+      "engineer": "jabahamondes",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/89551"
+      ]
+    },
+    {
+      "issue": 90191,
+      "engineer": "gantoine",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/90192"
+      ]
+    },
+    {
+      "issue": 90741,
+      "engineer": "bernatixer",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/90744"
+      ]
+    },
+    {
+      "issue": 90742,
+      "engineer": "bernatixer",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/90744"
+      ]
+    },
+    {
+      "issue": 90849,
+      "engineer": "andrewm4894",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/90870"
+      ]
+    },
+    {
+      "issue": 90849,
+      "engineer": "puspoaditya",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/90870"
+      ]
+    },
+    {
+      "issue": 91324,
+      "engineer": "andrewm4894",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/92045"
+      ]
+    },
+    {
+      "issue": 91817,
+      "engineer": "andrewm4894",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/92045"
+      ]
+    },
+    {
+      "issue": 91899,
+      "engineer": "jurajmajerik",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/94006"
+      ]
+    },
+    {
+      "issue": 91907,
+      "engineer": "andrewm4894",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/92045"
+      ]
+    },
+    {
+      "issue": 92144,
+      "engineer": "Piccirello",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/94400"
+      ]
+    },
+    {
+      "issue": 92875,
+      "engineer": "GeneralistDev",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/93137"
+      ]
+    },
+    {
+      "issue": 92891,
+      "engineer": "claude",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/96310"
+      ]
+    },
+    {
+      "issue": 92891,
+      "engineer": "thmsobrmlr",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/96310"
+      ]
+    },
+    {
+      "issue": 93035,
+      "engineer": "haacked",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/98802"
+      ]
+    },
+    {
+      "issue": 93630,
+      "engineer": "danielcarletti",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/94510"
+      ]
+    },
+    {
+      "issue": 93842,
+      "engineer": "Bhumika-1432006",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/95917"
+      ]
+    },
+    {
+      "issue": 93842,
+      "engineer": "ablaszkiewicz",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/95917"
+      ]
+    },
+    {
+      "issue": 96903,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/96905"
+      ]
+    },
+    {
+      "issue": 97444,
+      "engineer": "jonmcwest",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/97471"
+      ]
+    },
+    {
+      "issue": 97445,
+      "engineer": "jonmcwest",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/98254"
+      ]
+    },
+    {
+      "issue": 97446,
+      "engineer": "jonmcwest",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/98300"
+      ]
+    },
+    {
+      "issue": 97799,
+      "engineer": "andrewm4894",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/99142"
+      ]
+    },
+    {
+      "issue": 98068,
+      "engineer": "danielcarletti",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/98069"
+      ]
+    },
+    {
+      "issue": 98068,
+      "engineer": "jakesciotto",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/98069"
+      ]
+    },
+    {
+      "issue": 98325,
+      "engineer": "fercgomes",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/98481"
+      ]
+    },
+    {
+      "issue": 98326,
+      "engineer": "fercgomes",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/98295"
+      ]
+    },
+    {
+      "issue": 99096,
+      "engineer": "pauldambra",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/99209"
+      ]
+    },
+    {
+      "issue": 99553,
+      "engineer": "fercgomes",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/99479",
+        "https://github.com/PostHog/posthog/pull/99501"
+      ]
+    },
+    {
+      "issue": 100028,
+      "engineer": "orian",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/101408"
+      ]
+    },
+    {
+      "issue": 101512,
+      "engineer": "andrewm4894",
+      "prs": [
+        "https://github.com/PostHog/posthog/pull/101685"
+      ]
+    }
+  ],
+  "skipped": {
+    "unmerged_pr": 99,
+    "bot_or_unknown_commit": 129,
+    "bot_pr": 133,
+    "cross_repository_pr": 17
+  },
+  "direct_revert_commit_references_found": 0,
+  "reverted_prs": []
+};</script>
+<script>
+const scoreFile = "issue_delivery_scores.json";
+const state = { data: null, showingAll: false, selected: null };
+
+const scoreText = (value) => Number(value).toFixed(2).replace(/\.00$/, "");
+const shortPr = (url) => `PR #${url.split("/").pop()}`;
+
+function evidenceFor(engineer) {
+  return state.data.evidence.filter((item) => item.engineer === engineer);
+}
+
+function renderRanking() {
+  const scores = state.showingAll ? state.data.scores : state.data.scores.slice(0, 5);
+  const max = state.data.scores[0].points;
+  const list = document.getElementById("rank-list");
+  list.innerHTML = scores.map((entry, index) => `
+    <li class="rank-row ${entry.engineer === state.selected ? "selected" : ""}" data-engineer="${entry.engineer}" tabindex="0" role="button">
+      <span class="rank">${index + 1}</span>
+      <span><span class="engineer">${entry.engineer}</span><span class="bar-track"><span class="bar" style="width:${(entry.points / max) * 100}%"></span></span></span>
+      <span class="points">${scoreText(entry.points)}<small>points</small></span>
+    </li>`).join("");
+  list.querySelectorAll(".rank-row").forEach((row) => {
+    const select = () => { state.selected = row.dataset.engineer; renderRanking(); renderDetail(); };
+    row.addEventListener("click", select);
+    row.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") select(); });
+  });
+}
+
+function renderDetail() {
+  const title = document.getElementById("detail-title");
+  const copy = document.getElementById("detail-copy");
+  const stats = document.getElementById("detail-stats");
+  const list = document.getElementById("evidence-list");
+  if (!state.selected) { title.textContent = "Select an engineer"; copy.textContent = "Choose a contributor to inspect the closed issues and merged PRs that support their score."; stats.innerHTML = ""; list.innerHTML = ""; return; }
+  const score = state.data.scores.find((entry) => entry.engineer === state.selected);
+  const evidence = evidenceFor(state.selected);
+  const prs = new Set(evidence.flatMap((item) => item.prs));
+  title.textContent = state.selected;
+  copy.textContent = "Every entry below represents one closed issue that contributed a shared delivery point.";
+  stats.innerHTML = `<div class="detail-stat"><strong>${scoreText(score.points)}</strong>delivery points</div><div class="detail-stat"><strong>${evidence.length}</strong>closed issues</div><div class="detail-stat"><strong>${prs.size}</strong>merged PRs</div>`;
+  list.innerHTML = evidence.map((item) => `<li><a class="issue-link" href="https://github.com/PostHog/posthog/issues/${item.issue}" target="_blank" rel="noreferrer">Issue #${item.issue}</a><div class="pr-links">${item.prs.map((url) => `<a href="${url}" target="_blank" rel="noreferrer">${shortPr(url)}</a>`).join("")}</div></li>`).join("");
+}
+
+function render(data) {
+  state.data = data;
+  document.getElementById("window").textContent = `${data.cutoff.slice(0, 10)} → ${data.generated_at.slice(0, 10)} UTC`;
+  document.getElementById("engineer-count").textContent = data.scores.length;
+  document.getElementById("evidence-count").textContent = data.evidence.length;
+  document.getElementById("score-total").textContent = scoreText(data.scores.reduce((sum, item) => sum + item.points, 0));
+  const reverts = data.reverted_prs || [];
+  document.getElementById("revert-content").innerHTML = reverts.length
+    ? `<ul>${reverts.map((item) => `<li><a href="${item.pr}" target="_blank" rel="noreferrer">${shortPr(item.pr)}</a> was excluded after a <a href="${item.revert_commit}" target="_blank" rel="noreferrer">direct revert</a> (linked issue${item.issues.length === 1 ? "" : "s"}: ${item.issues.map((issue) => `#${issue}`).join(", ")}).</li>`).join("")}</ul>`
+    : "No issue-linked PRs in this score window were directly reverted. Direct reverts are excluded from delivery-point allocation.";
+  document.getElementById("show-all").addEventListener("click", (event) => {
+    state.showingAll = !state.showingAll;
+    event.currentTarget.textContent = state.showingAll ? "Show top 5" : "Show all";
+    event.currentTarget.setAttribute("aria-pressed", state.showingAll);
+    renderRanking();
+  });
+  renderRanking();
+  renderDetail();
+}
+
+const dataSource = window.SCORE_DATA
+  ? Promise.resolve(window.SCORE_DATA)
+  : fetch(scoreFile).then((response) => {
+  if (!response.ok) throw new Error("Could not load the scoring data");
+  return response.json();
+});
+
+dataSource.then(render).catch((error) => {
+  document.querySelector(".shell").innerHTML = `<p class="empty">${error.message}. Run this dashboard from a local web server.</p>`;
+});
+
+</script>
+  </body>
+</html>
