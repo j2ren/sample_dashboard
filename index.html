@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PostHog engineering impact</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">PostHog / 90-day engineering analysis</p>
+          <h1>Issue-delivery impact</h1>
+          <p class="lede">A transparent ranking of engineers who contributed code to merged PRs associated with closed GitHub issues.</p>
+        </div>
+        <div class="window" id="window">Loading window…</div>
+      </header>
+
+      <section class="method" aria-labelledby="method-title">
+        <div>
+          <p class="eyebrow" id="method-title">How points work</p>
+          <p>Each closed issue is worth <strong>1 point</strong>, split equally among its unique human commit authors across associated merged PRs.</p>
+        </div>
+        <ul>
+          <li>Bot and unknown commit identities excluded</li>
+          <li>Bot, unmerged, cross-repository, and directly reverted PRs excluded</li>
+          <li>Labels, merge speed, and review volume do not affect rank</li>
+        </ul>
+      </section>
+
+      <section class="summary" aria-label="Dashboard summary">
+        <div class="stat"><span id="engineer-count">—</span><small>engineers scored</small></div>
+        <div class="stat"><span id="evidence-count">—</span><small>issue / engineer pairs</small></div>
+        <div class="stat"><span id="score-total">—</span><small>delivery points allocated</small></div>
+      </section>
+
+      <section class="reverts" aria-labelledby="reverts-title">
+        <div>
+          <p class="eyebrow">Durability check</p>
+          <h2 id="reverts-title">Directly reverted delivery PRs</h2>
+        </div>
+        <div id="revert-content" class="revert-content">Loading revert evidence…</div>
+      </section>
+
+      <section class="layout">
+        <section class="ranking" aria-labelledby="ranking-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Ranking</p>
+              <h2 id="ranking-title">Top contributors</h2>
+            </div>
+            <button id="show-all" type="button" aria-pressed="false">Show all</button>
+          </div>
+          <ol class="rank-list" id="rank-list" aria-live="polite"></ol>
+        </section>
+
+        <aside class="detail" aria-labelledby="detail-title">
+          <p class="eyebrow">Evidence</p>
+          <h2 id="detail-title">Select an engineer</h2>
+          <p class="detail-copy" id="detail-copy">Choose a contributor to inspect the closed issues and merged PRs that support their score.</p>
+          <div id="detail-stats" class="detail-stats"></div>
+          <ul id="evidence-list" class="evidence-list"></ul>
+        </aside>
+      </section>
+
+      <section class="caveats" aria-labelledby="caveats-title">
+        <p class="eyebrow">Interpretation</p>
+        <h2 id="caveats-title">This is a delivery signal, not a complete definition of impact.</h2>
+        <p>It does not measure design, incident response, mentoring, review quality, or work tracked outside GitHub Issues. Use the links above to audit individual contributions before drawing conclusions.</p>
+      </section>
+    </main>
+    <script src="dashboard.js"></script>
+  </body>
+</html>
